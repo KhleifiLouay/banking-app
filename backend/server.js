@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 require('dotenv').config();
 
 // Initialize database
@@ -108,10 +109,23 @@ app.use('/api/*', (req, res) => {
   res.status(404).json({ message: 'API route not found' });
 });
 
-// Serve static files in production (after API routes)
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static('../frontend'));
-}
+// Serve static files (frontend) - works in both dev and production
+const frontendPath = path.join(__dirname, '../frontend');
+app.use(express.static(frontendPath));
+
+// Catch-all handler: serve index.html for any non-API GET routes (for SPA routing)
+app.get('*', (req, res, next) => {
+  // Don't serve HTML for API routes
+  if (req.path.startsWith('/api')) {
+    return next();
+  }
+  // Serve index.html for all other routes (SPA fallback)
+  res.sendFile(path.join(frontendPath, 'index.html'), (err) => {
+    if (err) {
+      res.status(404).send('Page not found');
+    }
+  });
+});
 
 const PORT = process.env.PORT || 5000;
 
