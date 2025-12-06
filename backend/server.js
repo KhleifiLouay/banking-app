@@ -28,6 +28,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+      scriptSrcAttr: ["'unsafe-hashes'"], // Allow event handlers with hashes if needed
       imgSrc: ["'self'", "data:", "https:"],
     },
   },

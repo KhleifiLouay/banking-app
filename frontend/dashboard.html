@@ -157,7 +157,17 @@
             : '/api'; // Use relative path when deployed (same domain)
     </script>
     <!-- jsPDF library for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" onload="console.log('jsPDF loaded')" onerror="console.error('jsPDF failed to load')"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script>
+        // Handle jsPDF loading without inline handlers (CSP compliant)
+        window.addEventListener('load', function() {
+            if (typeof window.jspdf !== 'undefined' || typeof jspdf !== 'undefined') {
+                console.log('jsPDF loaded successfully');
+            } else {
+                console.warn('jsPDF may not have loaded correctly');
+            }
+        });
+    </script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
