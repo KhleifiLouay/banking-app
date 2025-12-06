@@ -72,3 +72,4 @@ After pushing to GitHub:
 1. Follow `DEPLOY_CHECKLIST.md` to deploy your app
 2. Render and Netlify can connect to your GitHub repo for automatic deployments
 
+
