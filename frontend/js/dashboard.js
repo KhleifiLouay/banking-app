@@ -370,57 +370,61 @@ function generatePDF(transactions) {
         // Get jsPDF from the loaded library - handle different loading methods
         let jsPDF;
         
-        // The CDN version loads as window.jspdf.jsPDF
-        if (window.jspdf && window.jspdf.jsPDF) {
-            jsPDF = window.jspdf.jsPDF;
-            console.log('Found jsPDF via window.jspdf.jsPDF');
-        } else if (window.jspdf && typeof window.jspdf === 'object') {
-            // Try accessing directly
-            jsPDF = window.jspdf.jsPDF || window.jspdf;
-            console.log('Found jsPDF via window.jspdf');
+        // The CDN version (2.5.1) loads as window.jspdf.jsPDF
+        if (window.jspdf) {
+            if (window.jspdf.jsPDF) {
+                jsPDF = window.jspdf.jsPDF;
+                console.log('Found jsPDF via window.jspdf.jsPDF');
+            } else if (window.jspdf.default && window.jspdf.default.jsPDF) {
+                jsPDF = window.jspdf.default.jsPDF;
+                console.log('Found jsPDF via window.jspdf.default.jsPDF');
+            } else {
+                // Try as constructor directly
+                jsPDF = window.jspdf;
+                console.log('Found jsPDF via window.jspdf (direct)');
+            }
         } else if (typeof jspdf !== 'undefined') {
             // Global jspdf variable
             if (jspdf.jsPDF) {
                 jsPDF = jspdf.jsPDF;
+            } else if (jspdf.default && jspdf.default.jsPDF) {
+                jsPDF = jspdf.default.jsPDF;
             } else {
                 jsPDF = jspdf;
             }
             console.log('Found jsPDF via global jspdf');
-        } else {
-            // Try to access from window directly
-            const possibleNames = ['jsPDF', 'jspdf'];
-            for (const name of possibleNames) {
-                if (window[name]) {
-                    if (window[name].jsPDF) {
-                        jsPDF = window[name].jsPDF;
-                    } else if (typeof window[name] === 'function') {
-                        jsPDF = window[name];
-                    }
-                    if (jsPDF) {
-                        console.log('Found jsPDF via window.' + name);
-                        break;
-                    }
-                }
-            }
         }
         
+        // Final check - if still not found, try to find it
         if (!jsPDF || typeof jsPDF !== 'function') {
-            showMessage('Erreur: Bibliothèque PDF non disponible. Veuillez recharger la page.', 'error');
-            console.error('jsPDF not found. Available globals:', Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
+            console.error('jsPDF not found. Checking window object...');
             console.error('window.jspdf:', window.jspdf);
             console.error('typeof jspdf:', typeof jspdf);
-            // Try to reload the library
+            console.error('Available keys:', Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
+            
+            // Try one more time with a delay (library might still be loading)
+            if (window.jspdf && !window.jspdf.jsPDF) {
+                console.log('Waiting for jsPDF to fully load...');
+                setTimeout(() => generatePDF(transactions), 500);
+                return;
+            }
+            
+            showMessage('Erreur: Bibliothèque PDF non disponible. Rechargement de la page...', 'error');
+            // Reload the library
             const script = document.createElement('script');
             script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
             script.onload = () => {
                 console.log('jsPDF reloaded, retrying...');
-                setTimeout(() => generatePDF(transactions), 200);
+                setTimeout(() => generatePDF(transactions), 300);
+            };
+            script.onerror = () => {
+                showMessage('Erreur: Impossible de charger la bibliothèque PDF. Vérifiez votre connexion.', 'error');
             };
             document.head.appendChild(script);
             return;
         }
         
-        console.log('Creating PDF document...');
+        console.log('Creating PDF document with', transactions.length, 'transactions...');
         const doc = new jsPDF();
         
         // Header
@@ -568,8 +572,8 @@ function displayAdminUsers(users) {
     `).join('');
 }
 
-// View user details
-async function viewUserDetails(userId) {
+// View user details - make globally accessible
+window.viewUserDetails = async function(userId) {
     try {
         const [userResponse, transactionsResponse] = await Promise.all([
             fetch(`${API_BASE}/admin/users/${userId}`, {
@@ -640,8 +644,8 @@ async function viewUserDetails(userId) {
     }
 }
 
-// Edit user
-async function editUser(userId) {
+// Edit user - make globally accessible
+window.editUser = async function(userId) {
     currentEditingUserId = userId;
     const user = allUsers.find(u => u.id === userId);
     if (!user) return;
@@ -718,8 +722,8 @@ async function saveUserChanges() {
     }
 }
 
-// Delete user
-async function deleteUser(userId) {
+// Delete user - make globally accessible
+window.deleteUser = async function(userId) {
     const user = allUsers.find(u => u.id === userId);
     if (!user) return;
     

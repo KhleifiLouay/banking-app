@@ -101,8 +101,8 @@ function displayUsers(users) {
     `).join('');
 }
 
-// View user details
-async function viewUserDetails(userId) {
+// View user details - make globally accessible
+window.viewUserDetails = async function(userId) {
     try {
         const [userResponse, transactionsResponse] = await Promise.all([
             fetch(`${API_BASE}/admin/users/${userId}`, {
@@ -180,8 +180,8 @@ async function viewUserDetails(userId) {
     }
 }
 
-// Edit user
-async function editUser(userId) {
+// Edit user - make globally accessible
+window.editUser = async function(userId) {
     currentEditingUserId = userId;
     const user = allUsers.find(u => u.id === userId);
     
@@ -260,8 +260,8 @@ async function saveUserChanges() {
     }
 }
 
-// Delete user
-async function deleteUser(userId) {
+// Delete user - make globally accessible
+window.deleteUser = async function(userId) {
     const user = allUsers.find(u => u.id === userId);
     if (!user) return;
     
@@ -290,8 +290,8 @@ async function deleteUser(userId) {
     }
 }
 
-// Close modal
-function closeModal() {
+// Close modal - make globally accessible
+window.closeModal = function() {
     document.getElementById('userModal').style.display = 'none';
     document.getElementById('userTransactions').style.display = 'block';
     currentEditingUserId = null;
