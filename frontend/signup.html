@@ -32,9 +32,19 @@
                 </div>
                 
                 <div class="form-group">
+                    <label for="confirmEmail">Confirmer l'email</label>
+                    <input type="email" id="confirmEmail" name="confirmEmail" required>
+                </div>
+                
+                <div class="form-group">
                     <label for="password">Mot de passe</label>
-                    <input type="password" id="password" name="password" minlength="6" required>
-                    <small>Minimum 6 caractères</small>
+                    <input type="password" id="password" name="password" minlength="8" required>
+                    <small>Minimum 8 caractères, avec au moins une majuscule, une minuscule et un chiffre</small>
+                </div>
+                
+                <div class="form-group">
+                    <label for="confirmPassword">Confirmer le mot de passe</label>
+                    <input type="password" id="confirmPassword" name="confirmPassword" minlength="8" required>
                 </div>
                 
                 <button type="submit" class="btn btn-primary btn-full">Créer un Compte</button>
