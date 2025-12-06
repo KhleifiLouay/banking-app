@@ -53,3 +53,6 @@ temp/
 
 # Local Netlify folder
 .netlify
+
+# Nested git repositories
+banking-app/.git/
