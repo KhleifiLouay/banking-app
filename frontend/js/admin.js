@@ -1,7 +1,16 @@
-// API Configuration - Change this when deploying to production
+// API Configuration - Use dynamic port detection
 const API_BASE = (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) 
   ? API_BASE_URL 
-  : 'http://localhost:5000/api';
+  : (() => {
+      // Fallback: construct from current location
+      const hostname = window.location.hostname;
+      const port = window.location.port;
+      const protocol = window.location.protocol;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return port ? `${protocol}//${hostname}:${port}/api` : `${protocol}//${hostname}:5000/api`;
+      }
+      return '/api';
+    })();
 let allUsers = [];
 let currentEditingUserId = null;
 
@@ -83,6 +92,8 @@ function displayUsers(users) {
         return;
     }
     
+    console.log('Displaying users:', users.length);
+    
     container.innerHTML = users.map(user => `
         <div class="user-card" data-user-id="${user.id}">
             <div class="user-info">
@@ -93,29 +104,51 @@ function displayUsers(users) {
                 ${user.isAdmin ? '<span class="admin-badge">👑 Admin</span>' : ''}
             </div>
             <div class="user-actions">
-                <button class="btn btn-small btn-primary" onclick="viewUserDetails(${user.id})">Voir</button>
-                <button class="btn btn-small btn-secondary" onclick="editUser(${user.id})">Modifier</button>
-                <button class="btn btn-small btn-danger" onclick="deleteUser(${user.id})" ${user.isAdmin ? 'disabled' : ''}>Supprimer</button>
+                <button class="btn btn-small btn-primary" data-action="view" data-user-id="${user.id}" type="button" onclick="window.viewUserDetails(${user.id})">Voir</button>
+                <button class="btn btn-small btn-secondary" data-action="edit" data-user-id="${user.id}" type="button" onclick="window.editUser(${user.id})">Modifier</button>
+                <button class="btn btn-small btn-danger" data-action="delete" data-user-id="${user.id}" type="button" onclick="if(!this.disabled) window.deleteUser(${user.id})" ${user.isAdmin ? 'disabled' : ''}>Supprimer</button>
             </div>
         </div>
     `).join('');
+    
+    console.log('Users displayed, buttons should be clickable now');
 }
 
 // View user details - make globally accessible
 window.viewUserDetails = async function(userId) {
+    console.log('viewUserDetails called with userId:', userId);
+    console.log('API_BASE:', API_BASE);
+    
     try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showMessage('Token manquant. Veuillez vous reconnecter.', 'error');
+            return;
+        }
+        
+        const userUrl = `${API_BASE}/admin/users/${userId}`;
+        const transactionsUrl = `${API_BASE}/admin/users/${userId}/transactions`;
+        
+        console.log('Fetching user from:', userUrl);
+        console.log('Fetching transactions from:', transactionsUrl);
+        
         const [userResponse, transactionsResponse] = await Promise.all([
-            fetch(`${API_BASE}/admin/users/${userId}`, {
+            fetch(userUrl, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             }),
-            fetch(`${API_BASE}/admin/users/${userId}/transactions`, {
+            fetch(transactionsUrl, {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
                 }
             })
         ]);
+        
+        console.log('User response status:', userResponse.status);
+        console.log('Transactions response status:', transactionsResponse.status);
         
         if (userResponse.ok && transactionsResponse.ok) {
             const user = await userResponse.json();
@@ -186,10 +219,19 @@ window.viewUserDetails = async function(userId) {
 
 // Edit user - make globally accessible
 window.editUser = async function(userId) {
+    console.log('editUser called with userId:', userId);
+    console.log('Available users:', allUsers);
+    
     currentEditingUserId = userId;
     const user = allUsers.find(u => u.id === userId);
     
-    if (!user) return;
+    if (!user) {
+        console.error('User not found in allUsers array:', userId);
+        showMessage('Utilisateur non trouvé', 'error');
+        return;
+    }
+    
+    console.log('Editing user:', user);
     
     document.getElementById('modalTitle').textContent = `Modifier: ${user.firstName} ${user.lastName}`;
     document.getElementById('userDetails').innerHTML = `
@@ -226,7 +268,7 @@ window.editUser = async function(userId) {
             </div>
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">Enregistrer</button>
-                <button type="button" class="btn btn-secondary" onclick="closeModal()">Annuler</button>
+                <button type="button" class="btn btn-secondary" id="cancelEditBtn">Annuler</button>
             </div>
         </form>
     `;
@@ -234,10 +276,19 @@ window.editUser = async function(userId) {
     document.getElementById('userModal').style.display = 'block';
     
     // Handle form submission
-    document.getElementById('editUserForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        await saveUserChanges();
-    });
+    const form = document.getElementById('editUserForm');
+    if (form) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await saveUserChanges();
+        });
+    }
+    
+    // Handle cancel button
+    const cancelBtn = document.getElementById('cancelEditBtn');
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeModal);
+    }
 }
 
 // Save user changes
@@ -293,20 +344,39 @@ async function saveUserChanges() {
 
 // Delete user - make globally accessible
 window.deleteUser = async function(userId) {
+    console.log('deleteUser called with userId:', userId);
+    
     const user = allUsers.find(u => u.id === userId);
-    if (!user) return;
+    if (!user) {
+        console.error('User not found for deletion:', userId);
+        showMessage('Utilisateur non trouvé', 'error');
+        return;
+    }
     
     if (!confirm(`Êtes-vous sûr de vouloir supprimer l'utilisateur ${user.firstName} ${user.lastName}? Cette action est irréversible.`)) {
+        console.log('User cancelled deletion');
         return;
     }
     
     try {
-        const response = await fetch(`${API_BASE}/admin/users/${userId}`, {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            showMessage('Token manquant. Veuillez vous reconnecter.', 'error');
+            return;
+        }
+        
+        const deleteUrl = `${API_BASE}/admin/users/${userId}`;
+        console.log('Deleting user from:', deleteUrl);
+        
+        const response = await fetch(deleteUrl, {
             method: 'DELETE',
             headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
             }
         });
+        
+        console.log('Delete response status:', response.status);
         
         if (response.ok) {
             showMessage('Utilisateur supprimé avec succès!', 'success');
@@ -362,6 +432,57 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
     window.location.href = 'login.html';
 });
 
+// Event delegation for user action buttons (works with dynamically added content)
+document.addEventListener('click', function(e) {
+    // Check if clicked element or its parent is a button with data-action
+    let button = e.target;
+    while (button && button !== document.body) {
+        if (button.tagName === 'BUTTON' && button.hasAttribute('data-action')) {
+            break;
+        }
+        button = button.parentElement;
+    }
+    
+    if (!button || !button.hasAttribute('data-action')) return;
+    
+    const container = document.getElementById('usersList');
+    if (!container || !container.contains(button)) return;
+    
+    const action = button.getAttribute('data-action');
+    const userId = parseInt(button.getAttribute('data-user-id'));
+    
+    console.log('Admin button clicked:', { action, userId, button });
+    
+    if (!userId || isNaN(userId)) {
+        console.error('Invalid user ID:', userId);
+        return;
+    }
+    
+    e.preventDefault();
+    e.stopPropagation();
+    
+    switch(action) {
+        case 'view':
+            console.log('Calling viewUserDetails for user:', userId);
+            viewUserDetails(userId);
+            break;
+        case 'edit':
+            console.log('Calling editUser for user:', userId);
+            editUser(userId);
+            break;
+        case 'delete':
+            if (!button.disabled) {
+                console.log('Calling deleteUser for user:', userId);
+                deleteUser(userId);
+            } else {
+                console.log('Delete button is disabled for user:', userId);
+            }
+            break;
+        default:
+            console.warn('Unknown action:', action);
+    }
+});
+
 // Close modal when clicking outside
 window.addEventListener('click', function(event) {
     const modal = document.getElementById('userModal');
@@ -372,6 +493,18 @@ window.addEventListener('click', function(event) {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('Admin page loaded, API_BASE:', API_BASE);
     checkAdminAuth();
+    
+    // Test: Log when any button in usersList is clicked
+    setTimeout(() => {
+        const container = document.getElementById('usersList');
+        if (container) {
+            console.log('Users list container found, setting up click test');
+            container.addEventListener('click', function(e) {
+                console.log('Click detected in usersList:', e.target, e.target.tagName);
+            });
+        }
+    }, 1000);
 });
 

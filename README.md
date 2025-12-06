@@ -26,11 +26,45 @@ npm install
 ```
 
 2. Start the server:
+
+**Option A - Using PowerShell script (Recommended):**
+```powershell
+cd backend
+.\start-server.ps1
+```
+
+**Option B - Using npm directly:**
 ```bash
+cd backend
 npm start
 ```
 
-3. Open `frontend/index.html` in your browser or visit `http://localhost:5000`
+**Option C - Manual start (if port is in use):**
+```powershell
+# First, stop any existing server
+cd backend
+.\stop-server.ps1
+
+# Then start the server
+npm start
+```
+
+3. Open your browser and visit `http://localhost:5000`
+
+## Stopping the Server
+
+**Option A - Using PowerShell script:**
+```powershell
+cd backend
+.\stop-server.ps1
+```
+
+**Option B - Manual stop:**
+```powershell
+Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess | ForEach-Object { Stop-Process -Id $_ -Force }
+```
+
+**Option C - Press `Ctrl+C` in the terminal where the server is running**
 
 ## Security Features
 

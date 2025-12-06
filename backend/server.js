@@ -28,7 +28,7 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
       scriptSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrcAttr: ["'unsafe-hashes'"], // Allow event handlers with hashes if needed
+      scriptSrcAttr: ["'unsafe-inline'"], // Allow inline event handlers (onclick)
       imgSrc: ["'self'", "data:", "https:"],
     },
   },
@@ -131,7 +131,79 @@ app.get('*', (req, res, next) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
+// Port configuration: Use PORT env var if set (deployment), otherwise find random free port (local dev)
+const net = require('net');
+
+// Function to check if a port is available (more reliable method)
+function isPortAvailable(port) {
+  return new Promise((resolve) => {
+    const tester = net.createServer()
+      .once('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+          resolve(false);
+        } else {
+          resolve(false);
+        }
+      })
+      .once('listening', () => {
+        tester.once('close', () => resolve(true))
+          .close();
+      })
+      .listen(port);
+  });
+}
+
+// Function to find a random free port
+async function findRandomFreePort(minPort = 5000, maxPort = 10000, maxAttempts = 200) {
+  console.log('🔍 Searching for a random free port...');
+  const portRange = maxPort - minPort;
+  const triedPorts = new Set();
+  
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    // Generate a random port in the range
+    let randomPort;
+    do {
+      randomPort = Math.floor(Math.random() * portRange) + minPort;
+    } while (triedPorts.has(randomPort) && triedPorts.size < portRange);
+    
+    triedPorts.add(randomPort);
+    
+    // Check if this port is available
+    const available = await isPortAvailable(randomPort);
+    
+    if (available) {
+      return randomPort;
+    }
+  }
+  
+  // If random attempts failed, fall back to sequential search
+  console.log('⚠️  Random port search exhausted, trying sequential search...');
+  for (let port = minPort; port <= maxPort; port++) {
+    if (!triedPorts.has(port)) {
+      const available = await isPortAvailable(port);
+      if (available) {
+        return port;
+      }
+    }
+  }
+  
+  throw new Error('No free port found in range 5000-10000');
+}
+
+// Determine which port to use
+async function getPort() {
+  // If PORT is explicitly set (deployment), use it
+  if (process.env.PORT) {
+    return parseInt(process.env.PORT);
+  }
+  
+  // Otherwise, find a random free port (local development)
+  // Start from 6000 to avoid common ports like 5000, 3000, etc.
+  // Use range 6000-9999 for better randomness
+  const freePort = await findRandomFreePort(6000, 9999);
+  console.log(`🎲 Random free port selected: ${freePort}`);
+  return freePort;
+}
 
 // Validate environment variables
 if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process.env.JWT_SECRET === 'fallback_secret')) {
@@ -139,10 +211,87 @@ if (process.env.NODE_ENV === 'production' && (!process.env.JWT_SECRET || process
   console.warn('⚠️  Please set JWT_SECRET environment variable');
 }
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  if (process.env.NODE_ENV === 'production') {
-    console.log('✅ Production mode enabled');
+// Start server
+async function startServer() {
+  const PORT = await getPort();
+  
+  // Add endpoint to get server port (for frontend)
+  app.get('/api/server-info', (req, res) => {
+    res.json({ port: PORT });
+  });
+  
+  const server = app.listen(PORT, () => {
+    console.log(`✅ Server running on port ${PORT}`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    if (process.env.NODE_ENV === 'production') {
+      console.log('✅ Production mode enabled');
+    } else {
+      console.log('🔧 Development mode - using dynamic port');
+    }
+    console.log(`\n🌐 Access your app at: http://localhost:${PORT}\n`);
+  });
+
+  // Handle port already in use error (shouldn't happen since we check before listening)
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ ERROR: Port ${PORT} became unavailable after check!\n`);
+      console.log('This should not happen. Trying to find another port...\n');
+      // Try to restart with a new port
+      setTimeout(async () => {
+        try {
+          const newPort = await findRandomFreePort(5000, 10000);
+          console.log(`🔄 Retrying with port: ${newPort}`);
+          server.close();
+          const newServer = app.listen(newPort, () => {
+            console.log(`✅ Server running on port ${newPort}`);
+            console.log(`🌐 Access your app at: http://localhost:${newPort}\n`);
+          });
+          serverInstance = newServer;
+        } catch (retryError) {
+          console.error('Failed to find alternative port:', retryError);
+          process.exit(1);
+        }
+      }, 1000);
+    } else {
+      console.error('Server error:', err);
+      process.exit(1);
+    }
+  });
+  
+  return server;
+}
+
+// Start server and handle graceful shutdown
+let serverInstance = null;
+
+startServer().then(server => {
+  serverInstance = server;
+}).catch(error => {
+  console.error('Failed to start server:', error);
+  process.exit(1);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  if (serverInstance) {
+    serverInstance.close(() => {
+      console.log('✅ Server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
+  }
+});
+
+process.on('SIGINT', () => {
+  console.log('\n🛑 SIGINT received, shutting down gracefully...');
+  if (serverInstance) {
+    serverInstance.close(() => {
+      console.log('✅ Server closed');
+      process.exit(0);
+    });
+  } else {
+    process.exit(0);
   }
 });
