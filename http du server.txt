@@ -1,0 +1,17 @@
+http://127.0.0.1:3000/index.html
+
+
+ACC1762199611604824     test1 test      test1234
+
+
+
+
+
+
+cd backend
+npm start
+
+cd frontend
+npx http-server -p 3001
+
+http://localhost:3001

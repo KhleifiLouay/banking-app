@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inscription - SecureBank</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Inscription</h1>
+                <p>Créez votre compte bancaire</p>
+            </div>
+            
+            <form id="signupForm" class="auth-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">Prénom</label>
+                        <input type="text" id="firstName" name="firstName" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Nom</label>
+                        <input type="text" id="lastName" name="lastName" required>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Mot de passe</label>
+                    <input type="password" id="password" name="password" minlength="6" required>
+                    <small>Minimum 6 caractères</small>
+                </div>
+                
+                <button type="submit" class="btn btn-primary btn-full">Créer un Compte</button>
+            </form>
+            
+            <div class="auth-footer">
+                <p>Déjà un compte ? <a href="login.html">Se connecter</a></p>
+                <p><a href="index.html">← Retour à l'accueil</a></p>
+            </div>
+            
+            <div id="message" class="message"></div>
+        </div>
+    </div>
+    
+    <!-- API Configuration -->
+    <script>
+        // For local development: 'http://localhost:5000/api'
+        // For production: 'https://YOUR-BACKEND-URL.onrender.com/api'
+        const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000/api'
+            : 'https://YOUR-BACKEND-URL.onrender.com/api'; // ⚠️ CHANGE THIS TO YOUR RENDER BACKEND URL
+    </script>
+    <script src="js/auth.js"></script>
+</body>
+</html>

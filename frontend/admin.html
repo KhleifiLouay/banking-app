@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administration - SecureBank</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1 class="nav-logo">🏦 SecureBank Admin</h1>
+            <div class="nav-links">
+                <span id="adminWelcome" class="welcome-text"></span>
+                <a href="dashboard.html" class="btn btn-secondary">Tableau de Bord</a>
+                <button id="logoutBtn" class="btn btn-secondary">Déconnexion</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="admin-container">
+        <div class="admin-header">
+            <h2>Gestion des Utilisateurs</h2>
+            <button id="refreshUsersBtn" class="btn btn-primary">🔄 Actualiser</button>
+        </div>
+
+        <div id="message" class="message"></div>
+
+        <!-- Users List -->
+        <div class="users-section">
+            <div class="users-header">
+                <h3>Liste des Utilisateurs</h3>
+                <div class="search-box">
+                    <input type="text" id="searchUsers" placeholder="Rechercher un utilisateur...">
+                </div>
+            </div>
+            <div id="usersList" class="users-list">
+                <div class="loading">Chargement des utilisateurs...</div>
+            </div>
+        </div>
+
+        <!-- User Details Modal -->
+        <div id="userModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalTitle">Détails de l'Utilisateur</h3>
+                    <button class="modal-close" id="closeModal">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div id="userDetails">
+                        <!-- User details will be loaded here -->
+                    </div>
+                    <div id="userTransactions" class="user-transactions">
+                        <h4>Transactions</h4>
+                        <div id="transactionsContainer" class="transactions-container">
+                            <!-- Transactions will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- API Configuration -->
+    <script>
+        // For local development: 'http://localhost:5000/api'
+        // For production: 'https://YOUR-BACKEND-URL.onrender.com/api'
+        const API_BASE_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+            ? 'http://localhost:5000/api'
+            : 'https://YOUR-BACKEND-URL.onrender.com/api'; // ⚠️ CHANGE THIS TO YOUR RENDER BACKEND URL
+    </script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
+
