@@ -34,7 +34,13 @@ if (document.getElementById('loginForm')) {
                 body: JSON.stringify(formData)
             });
             
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                showMessage('Erreur: Réponse invalide du serveur');
+                return;
+            }
             
             if (response.ok) {
                 localStorage.setItem('token', data.token);
@@ -44,10 +50,11 @@ if (document.getElementById('loginForm')) {
                     window.location.href = 'dashboard.html';
                 }, 1000);
             } else {
-                showMessage(data.message);
+                showMessage(data.message || 'Erreur de connexion');
             }
         } catch (error) {
-            showMessage('Erreur de connexion au serveur');
+            console.error('Login error:', error);
+            showMessage('Erreur de connexion au serveur. Vérifiez que le serveur est démarré.');
         }
     });
 }
@@ -120,7 +127,13 @@ if (document.getElementById('signupForm')) {
                 body: JSON.stringify(formData)
             });
             
-            const data = await response.json();
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                showMessage('Erreur: Réponse invalide du serveur');
+                return;
+            }
             
             if (response.ok) {
                 localStorage.setItem('token', data.token);
@@ -130,10 +143,11 @@ if (document.getElementById('signupForm')) {
                     window.location.href = 'dashboard.html';
                 }, 1000);
             } else {
-                showMessage(data.message);
+                showMessage(data.message || 'Erreur lors de la création du compte');
             }
         } catch (error) {
-            showMessage('Erreur de connexion au serveur');
+            console.error('Signup error:', error);
+            showMessage('Erreur de connexion au serveur. Vérifiez que le serveur est démarré.');
         }
     });
 }

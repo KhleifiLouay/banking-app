@@ -290,7 +290,16 @@ document.getElementById('logoutBtn').addEventListener('click', function() {
 async function downloadStatement() {
     try {
         console.log('Download statement called');
-        // Load transactions if not already loaded
+        
+        // Check if jsPDF is already loaded
+        const checkJsPDF = () => {
+            return typeof window.jspdf !== 'undefined' || 
+                   typeof jspdf !== 'undefined' ||
+                   (window.jspdf && window.jspdf.jsPDF) ||
+                   (typeof jspdf !== 'undefined' && jspdf.jsPDF);
+        };
+        
+        // Load transactions
         const response = await fetch(`${API_BASE}/banking/transactions`, {
             headers: {
                 'Authorization': `Bearer ${localStorage.getItem('token')}`
@@ -302,33 +311,43 @@ async function downloadStatement() {
             return;
         }
         
-        const transactions = await response.json();
+        let transactions;
+        try {
+            transactions = await response.json();
+        } catch (jsonError) {
+            showMessage('Erreur: Réponse invalide du serveur', 'error');
+            return;
+        }
         
         if (!transactions || transactions.length === 0) {
             showMessage('Aucune transaction à imprimer', 'error');
             return;
         }
         
-        // Create PDF using jsPDF (loaded from CDN)
-        if (typeof window.jspdf === 'undefined' && typeof jspdf === 'undefined') {
-            showMessage('Chargement de la bibliothèque PDF...', 'success');
-            // Try to load jsPDF if not loaded
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
-            script.onload = () => {
-                generatePDF(transactions);
-            };
-            script.onerror = () => {
-                showMessage('Erreur: Impossible de charger la bibliothèque PDF', 'error');
-            };
-            document.head.appendChild(script);
-            return;
+        // Check if jsPDF is loaded, if not, load it
+        if (!checkJsPDF()) {
+            console.log('Loading jsPDF library...');
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                script.onload = () => {
+                    console.log('jsPDF loaded successfully');
+                    setTimeout(() => generatePDF(transactions), 100);
+                    resolve();
+                };
+                script.onerror = () => {
+                    showMessage('Erreur: Impossible de charger la bibliothèque PDF. Vérifiez votre connexion internet.', 'error');
+                    reject(new Error('Failed to load jsPDF'));
+                };
+                document.head.appendChild(script);
+            });
         }
         
+        // Generate PDF immediately if library is already loaded
         generatePDF(transactions);
     } catch (error) {
         console.error('Error generating PDF:', error);
-        showMessage('Erreur lors de la génération du PDF: ' + error.message, 'error');
+        showMessage('Erreur lors de la génération du PDF: ' + (error.message || 'Erreur inconnue'), 'error');
     }
 }
 
@@ -338,16 +357,49 @@ window.downloadStatement = downloadStatement;
 // Separate PDF generation function
 function generatePDF(transactions) {
     try {
-        // Get jsPDF from the loaded library
+        // Get jsPDF from the loaded library - handle different loading methods
         let jsPDF;
-        if (window.jspdf && window.jspdf.jsPDF) {
-            jsPDF = window.jspdf.jsPDF;
-        } else if (typeof jspdf !== 'undefined' && jspdf.jsPDF) {
-            jsPDF = jspdf.jsPDF;
+        
+        // Try multiple ways to access jsPDF
+        if (typeof window.jspdf !== 'undefined') {
+            // UMD module loaded as window.jspdf
+            if (window.jspdf.jsPDF) {
+                jsPDF = window.jspdf.jsPDF;
+            } else if (window.jspdf.default && window.jspdf.default.jsPDF) {
+                jsPDF = window.jspdf.default.jsPDF;
+            } else if (window.jspdf.jsPDF) {
+                jsPDF = window.jspdf.jsPDF;
+            } else {
+                jsPDF = window.jspdf;
+            }
+        } else if (typeof jspdf !== 'undefined') {
+            // Global jspdf variable
+            if (jspdf.jsPDF) {
+                jsPDF = jspdf.jsPDF;
+            } else if (jspdf.default && jspdf.default.jsPDF) {
+                jsPDF = jspdf.default.jsPDF;
+            } else {
+                jsPDF = jspdf;
+            }
         } else {
-            showMessage('Erreur: Bibliothèque PDF non disponible', 'error');
+            // Last resort: try to find it in window
+            const possibleNames = ['jsPDF', 'jspdf', 'JsPDF'];
+            for (const name of possibleNames) {
+                if (window[name] && (window[name].jsPDF || typeof window[name] === 'function')) {
+                    jsPDF = window[name].jsPDF || window[name];
+                    break;
+                }
+            }
+        }
+        
+        if (!jsPDF || typeof jsPDF !== 'function') {
+            showMessage('Erreur: Bibliothèque PDF non disponible. Veuillez recharger la page.', 'error');
+            console.error('jsPDF not found. Available globals:', Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
+            console.error('window.jspdf:', window.jspdf);
+            console.error('typeof jspdf:', typeof jspdf);
             return;
         }
+        
         const doc = new jsPDF();
         
         // Header
