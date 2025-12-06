@@ -327,13 +327,17 @@ async function downloadStatement() {
         // Check if jsPDF is loaded, if not, load it
         if (!checkJsPDF()) {
             console.log('Loading jsPDF library...');
+            showMessage('Chargement de la bibliothèque PDF...', 'success');
             return new Promise((resolve, reject) => {
                 const script = document.createElement('script');
                 script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
                 script.onload = () => {
                     console.log('jsPDF loaded successfully');
-                    setTimeout(() => generatePDF(transactions), 100);
-                    resolve();
+                    // Wait a bit for the library to fully initialize
+                    setTimeout(() => {
+                        generatePDF(transactions);
+                        resolve();
+                    }, 300);
                 };
                 script.onerror = () => {
                     showMessage('Erreur: Impossible de charger la bibliothèque PDF. Vérifiez votre connexion internet.', 'error');
@@ -344,7 +348,8 @@ async function downloadStatement() {
         }
         
         // Generate PDF immediately if library is already loaded
-        generatePDF(transactions);
+        // Add small delay to ensure library is ready
+        setTimeout(() => generatePDF(transactions), 100);
     } catch (error) {
         console.error('Error generating PDF:', error);
         showMessage('Erreur lors de la génération du PDF: ' + (error.message || 'Erreur inconnue'), 'error');
@@ -357,37 +362,44 @@ window.downloadStatement = downloadStatement;
 // Separate PDF generation function
 function generatePDF(transactions) {
     try {
+        console.log('Generating PDF with', transactions.length, 'transactions');
+        console.log('Checking for jsPDF library...');
+        console.log('window.jspdf:', typeof window.jspdf, window.jspdf);
+        console.log('typeof jspdf:', typeof jspdf);
+        
         // Get jsPDF from the loaded library - handle different loading methods
         let jsPDF;
         
-        // Try multiple ways to access jsPDF
-        if (typeof window.jspdf !== 'undefined') {
-            // UMD module loaded as window.jspdf
-            if (window.jspdf.jsPDF) {
-                jsPDF = window.jspdf.jsPDF;
-            } else if (window.jspdf.default && window.jspdf.default.jsPDF) {
-                jsPDF = window.jspdf.default.jsPDF;
-            } else if (window.jspdf.jsPDF) {
-                jsPDF = window.jspdf.jsPDF;
-            } else {
-                jsPDF = window.jspdf;
-            }
+        // The CDN version loads as window.jspdf.jsPDF
+        if (window.jspdf && window.jspdf.jsPDF) {
+            jsPDF = window.jspdf.jsPDF;
+            console.log('Found jsPDF via window.jspdf.jsPDF');
+        } else if (window.jspdf && typeof window.jspdf === 'object') {
+            // Try accessing directly
+            jsPDF = window.jspdf.jsPDF || window.jspdf;
+            console.log('Found jsPDF via window.jspdf');
         } else if (typeof jspdf !== 'undefined') {
             // Global jspdf variable
             if (jspdf.jsPDF) {
                 jsPDF = jspdf.jsPDF;
-            } else if (jspdf.default && jspdf.default.jsPDF) {
-                jsPDF = jspdf.default.jsPDF;
             } else {
                 jsPDF = jspdf;
             }
+            console.log('Found jsPDF via global jspdf');
         } else {
-            // Last resort: try to find it in window
-            const possibleNames = ['jsPDF', 'jspdf', 'JsPDF'];
+            // Try to access from window directly
+            const possibleNames = ['jsPDF', 'jspdf'];
             for (const name of possibleNames) {
-                if (window[name] && (window[name].jsPDF || typeof window[name] === 'function')) {
-                    jsPDF = window[name].jsPDF || window[name];
-                    break;
+                if (window[name]) {
+                    if (window[name].jsPDF) {
+                        jsPDF = window[name].jsPDF;
+                    } else if (typeof window[name] === 'function') {
+                        jsPDF = window[name];
+                    }
+                    if (jsPDF) {
+                        console.log('Found jsPDF via window.' + name);
+                        break;
+                    }
                 }
             }
         }
@@ -397,9 +409,18 @@ function generatePDF(transactions) {
             console.error('jsPDF not found. Available globals:', Object.keys(window).filter(k => k.toLowerCase().includes('pdf')));
             console.error('window.jspdf:', window.jspdf);
             console.error('typeof jspdf:', typeof jspdf);
+            // Try to reload the library
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+            script.onload = () => {
+                console.log('jsPDF reloaded, retrying...');
+                setTimeout(() => generatePDF(transactions), 200);
+            };
+            document.head.appendChild(script);
             return;
         }
         
+        console.log('Creating PDF document...');
         const doc = new jsPDF();
         
         // Header
@@ -458,12 +479,20 @@ function generatePDF(transactions) {
         
         // Save PDF
         const fileName = `releve_${currentUser.accountNumber}_${new Date().toISOString().split('T')[0]}.pdf`;
-        doc.save(fileName);
+        console.log('Saving PDF as:', fileName);
         
-        showMessage('Relevé téléchargé avec succès!', 'success');
+        try {
+            doc.save(fileName);
+            console.log('PDF saved successfully');
+            showMessage('Relevé téléchargé avec succès!', 'success');
+        } catch (saveError) {
+            console.error('Error saving PDF:', saveError);
+            showMessage('Erreur lors de l\'enregistrement du PDF: ' + saveError.message, 'error');
+        }
     } catch (error) {
         console.error('Error in generatePDF:', error);
-        showMessage('Erreur lors de la génération du PDF: ' + error.message, 'error');
+        console.error('Error stack:', error.stack);
+        showMessage('Erreur lors de la génération du PDF: ' + (error.message || 'Erreur inconnue'), 'error');
     }
 }
 
