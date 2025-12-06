@@ -124,6 +124,10 @@ window.viewUserDetails = async function(userId) {
             document.getElementById('modalTitle').textContent = `Détails: ${user.firstName} ${user.lastName}`;
             document.getElementById('userDetails').innerHTML = `
                 <div class="detail-item">
+                    <label>ID:</label>
+                    <span>${user.id}</span>
+                </div>
+                <div class="detail-item">
                     <label>Nom complet:</label>
                     <span>${user.firstName} ${user.lastName}</span>
                 </div>
@@ -191,6 +195,11 @@ window.editUser = async function(userId) {
     document.getElementById('userDetails').innerHTML = `
         <form id="editUserForm" class="edit-user-form">
             <div class="form-group">
+                <label for="editId">ID:</label>
+                <input type="text" id="editId" value="${user.id}" readonly style="background-color: #f0f0f0; cursor: not-allowed;">
+                <small style="color: #666;">L'ID ne peut pas être modifié</small>
+            </div>
+            <div class="form-group">
                 <label for="editFirstName">Prénom:</label>
                 <input type="text" id="editFirstName" value="${user.firstName}" required>
             </div>
@@ -201,6 +210,11 @@ window.editUser = async function(userId) {
             <div class="form-group">
                 <label for="editEmail">Email:</label>
                 <input type="email" id="editEmail" value="${user.email}" required>
+            </div>
+            <div class="form-group">
+                <label for="editPassword">Nouveau mot de passe:</label>
+                <input type="password" id="editPassword" placeholder="Laisser vide pour ne pas changer">
+                <small style="color: #666;">Laisser vide si vous ne voulez pas changer le mot de passe</small>
             </div>
             <div class="form-group">
                 <label for="editBalance">Solde (€):</label>
@@ -229,13 +243,30 @@ window.editUser = async function(userId) {
 // Save user changes
 async function saveUserChanges() {
     try {
+        const password = document.getElementById('editPassword').value.trim();
         const updateData = {
-            firstName: document.getElementById('editFirstName').value,
-            lastName: document.getElementById('editLastName').value,
-            email: document.getElementById('editEmail').value,
+            firstName: document.getElementById('editFirstName').value.trim(),
+            lastName: document.getElementById('editLastName').value.trim(),
+            email: document.getElementById('editEmail').value.trim(),
             balance: parseFloat(document.getElementById('editBalance').value),
             isAdmin: document.getElementById('editIsAdmin').checked
         };
+        
+        // Only include password if it's not empty
+        if (password) {
+            updateData.password = password;
+        }
+        
+        // Validate inputs
+        if (!updateData.firstName || !updateData.lastName || !updateData.email) {
+            showMessage('Tous les champs obligatoires doivent être remplis', 'error');
+            return;
+        }
+        
+        if (updateData.balance < 0) {
+            showMessage('Le solde ne peut pas être négatif', 'error');
+            return;
+        }
         
         const response = await fetch(`${API_BASE}/admin/users/${currentEditingUserId}`, {
             method: 'PUT',

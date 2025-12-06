@@ -122,6 +122,10 @@ class User {
         fields.push('isAdmin = ?');
         values.push(updateData.isAdmin ? 1 : 0);
       }
+      if (updateData.password !== undefined) {
+        fields.push('password = ?');
+        values.push(updateData.password);
+      }
       
       if (fields.length === 0) {
         resolve();

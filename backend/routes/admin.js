@@ -54,8 +54,9 @@ router.get('/users/:id', admin, async (req, res) => {
 // Update user (admin only)
 router.put('/users/:id', admin, async (req, res) => {
   try {
-    const { balance, firstName, lastName, email, isAdmin } = req.body;
+    const { balance, firstName, lastName, email, isAdmin, password } = req.body;
     const userId = req.params.id;
+    const bcrypt = require('bcryptjs');
     
     const user = await User.findById(userId);
     if (!user) {
@@ -67,9 +68,19 @@ router.put('/users/:id', admin, async (req, res) => {
       await User.updateBalance(userId, parseFloat(balance));
     }
 
+    // Hash password if provided
+    let hashedPassword = undefined;
+    if (password && password.trim() !== '') {
+      hashedPassword = await bcrypt.hash(password, 12);
+    }
+
     // Update other fields if provided
-    if (firstName || lastName || email || isAdmin !== undefined) {
-      await User.update(userId, { firstName, lastName, email, isAdmin });
+    if (firstName || lastName || email || isAdmin !== undefined || hashedPassword) {
+      const updateData = { firstName, lastName, email, isAdmin };
+      if (hashedPassword) {
+        updateData.password = hashedPassword;
+      }
+      await User.update(userId, updateData);
     }
 
     const updatedUser = await User.findById(userId);
